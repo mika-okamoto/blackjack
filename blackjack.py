@@ -15,8 +15,8 @@ ranks = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A']
 cval = dict(zip(ranks, [1]*5+[0]*3+[-1]*5))
 val = dict(zip(ranks, [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11]))
 cards = [suit + rank for rank in ranks for suit in ('C', 'D', 'H', 'S')]
-cardimages = dict(zip(cards, [pygame.image.load("images/"+card+".png").convert() for card in cards]))
-face_down = pygame.image.load("images/card_face_down.png")
+cardimages = dict(zip(cards, [pygame.image.load("blackjack/images/"+card+".png").convert() for card in cards]))
+face_down = pygame.image.load("blackjack/images/card_face_down.png")
 deck = copy.deepcopy(2 * cards)
 cut, curr, count = 0, 0, 0
 flatHands, options = [], []
@@ -25,6 +25,7 @@ n = 2 # num players
 minbet = 5
 newBet = minbet
 bet, chips = minbet, [100 for _ in range(n)]
+isDoubleDown = [False for _ in range(n)]
 hand = [[] for _ in range(n+1)]
 topOffset = [50, 16, 8]
 turn = 1
@@ -73,6 +74,7 @@ def compare_hand(player, dealer, num):
             elif player_total < dealer_total: message = "Player Lose"; mult = -1
             else: message = "Push"
             
+    if isDoubleDown[num-1]: mult *= 2
     chips[num-1] = prevChips[num-1] + bet * mult
     return message
 
@@ -106,7 +108,7 @@ def draw_game():
         buttons.append(button)
 
         if editBet and (i >= 1 and i <= 3):
-            image = pygame.image.load("images/chip" + str(options[i]) + ".png")
+            image = pygame.image.load("blackjack/images/chip" + str(options[i]) + ".png")
             image = pygame.transform.scale(image, (60, 60))
             screen.blit(image, (13+i*(length+6)+10, height+15))
 
@@ -142,20 +144,21 @@ def resetOptions(hand):
 
 # when new hand
 def reset():
-    global hand, curr, cut, bet, active, firstDeal, n, messages, turn, prevCount, prevChips, newBet
+    global hand, curr, cut, bet, active, firstDeal, n, messages, turn, prevCount, prevChips, newBet, isDoubleDown
     turn = 1
     active, firstDeal = True, False
     bet = newBet
     messages = ['' for _ in range(n+1)]
+    isDoubleDown = [False for _ in range(n)]
 
     if curr >= cut: shuffle()
 
     prevCount = count
     prevChips = chips.copy()
 
-    #bets here
-    # use var minbet
-    # if bet > minbet or bet > #chips then default to minbet
+    if bet < minbet: bet = minbet
+    for i in range(n): 
+        if chips[i] < bet: bet = minbet
 
     hand = [[] for _ in range(n+1)]
     for i in range(n+1):
@@ -199,7 +202,7 @@ while running:
                     #split
                     pass
                 elif (len(buttons) > 2 and buttons[2].collidepoint(event.pos) and options[2] == 'double down') or (len(buttons) > 3 and buttons[3].collidepoint(event.pos) and options[3] == 'double down'):
-                    bet *= 2
+                    isDoubleDown[turn] = True
                     hand[turn] = draw_card(hand[turn])
                     messages[turn] = "double down"
                     turn += 1
@@ -229,4 +232,3 @@ pygame.quit()
 # split - idea maybe make n seperate between num players and num hands to display
 # bc the draw hands area is nice with n=num hands counting splits but all the other stuff should be n=num players
 
-# fix dd bet = isdoubledown array
