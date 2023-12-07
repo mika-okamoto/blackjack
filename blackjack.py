@@ -22,16 +22,18 @@ cut, curr, count = 0, 0, 0
 flatHands, options = [], []
 running, active, firstDeal, editBet = True, False, True, False
 n = 2 # num players
+hand_to_player = [i+1 for i in range(n)]
 minbet = 5
 newBet = minbet
 bet, chips = minbet, [100 for _ in range(n)]
 isDoubleDown = [False for _ in range(n)]
 hand = [[] for _ in range(n+1)]
-topOffset = [50, 16, 8]
+topOffset = [50, 16, 12]
 turn = 1
 messages = ['' for _ in range(n+1)]
 prevCount = count
 prevChips = chips.copy()
+firstFinished = False
 
 def shuffle():
     global cut, deck, curr, count, messages
@@ -60,7 +62,7 @@ def is_blackjack(hand):
     return len(hand) == 2 and calc_total(hand) == 21
 
 def compare_hand(player, dealer, num):
-    global bet, chips, prevChips
+    global bet, chips, prevChips, hand_to_player, isDoubleDown
     player_total, dealer_total = calc_total(player), calc_total(dealer)
     mult, message = 0, ''
     if is_blackjack(player): 
@@ -75,7 +77,8 @@ def compare_hand(player, dealer, num):
             else: message = "Push"
             
     if isDoubleDown[num-1]: mult *= 2
-    chips[num-1] = prevChips[num-1] + bet * mult
+    chips[hand_to_player[num-1]-1] = prevChips[hand_to_player[num-1]-1] + bet * mult
+    prevChips[hand_to_player[num-1]-1] = chips[hand_to_player[num-1]-1]
     return message
 
 def flattenHands(hand):
@@ -85,9 +88,9 @@ def flattenHands(hand):
         else: flatHands.append(i)
 
 def draw_game():
-    global hand, active, options, topOffset, messages, turn, chips
+    global hand, active, options, topOffset, messages, turn, chips, hand_to_player
     buttons = []
-    if active and turn > 0 and turn <= n: resetOptions(hand[turn])
+    if active and turn > 0 and turn <= len(hand_to_player): resetOptions(hand[turn])
     elif editBet: options = ['confirm', '1', '5', '25', 'clear']
     else: options = ['deal', 'reveal count', 'change bet'] 
     for i in range(len(options)):
@@ -112,7 +115,7 @@ def draw_game():
             image = pygame.transform.scale(image, (60, 60))
             screen.blit(image, (13+i*(length+6)+10, height+15))
 
-    height = (440) / (n+1)
+    height = (440) / (len(hand_to_player)+1)
     card_height = min(height - 30, 100)
     card_width = card_height / face_down.get_height() * face_down.get_width()
 
@@ -123,16 +126,17 @@ def draw_game():
         if active and i == 1:
             image = face_down
         image = pygame.transform.scale(image, (card_width, card_height))
-        screen.blit(image, (i*card_width+10, 30 + topOffset[n-1]))
+        screen.blit(image, (i*card_width+10, 25 + topOffset[n-1]))
 
-    for player in range(1, n+1):
-        if player == turn and active: screen.blit(fontUnderline.render(f"Player {player}'s Hand", True, 'black'), (10, 10+(height)*player))
-        else: screen.blit(font.render(f"Player {player}'s Hand", True, 'black'), (10, 10+(height)*player))
-        screen.blit(font.render("$" + str(chips[player-1]) + " " + messages[player], True, 'black'), (215, 10+(height)*player))
-        for i, card in enumerate(hand[player]):
+    for hand1 in range(len(hand_to_player)):
+        player = hand_to_player[hand1]
+        if hand1 + 1 == turn and active: screen.blit(fontUnderline.render(f"Player {player}'s Hand", True, 'black'), (10, 15+(height)*(hand1+1)))
+        else: screen.blit(font.render(f"Player {player}'s Hand", True, 'black'), (10, 15+(height)*(hand1+1)))
+        screen.blit(font.render("$" + str(chips[player-1]) + " " + messages[hand1+1], True, 'black'), (215, 15+(height)*(hand1+1)))
+        for i, card in enumerate(hand[hand1+1]):
             image = cardimages[card]
             image = pygame.transform.scale(image, (card_width, card_height))
-            screen.blit(image, (i*card_width+10, (height)*player+30 + topOffset[n-1]))
+            screen.blit(image, (i*card_width+10, (height)*(hand1+1)+30 + topOffset[len(hand_to_player)-1]))
 
     return buttons
 
@@ -144,12 +148,14 @@ def resetOptions(hand):
 
 # when new hand
 def reset():
-    global hand, curr, cut, bet, active, firstDeal, n, messages, turn, prevCount, prevChips, newBet, isDoubleDown
+    global hand, curr, cut, bet, active, firstDeal, n, messages, turn, prevCount, prevChips, newBet, isDoubleDown, hand_to_player, firstFinished
     turn = 1
     active, firstDeal = True, False
     bet = newBet
     messages = ['' for _ in range(n+1)]
     isDoubleDown = [False for _ in range(n)]
+    hand_to_player = [i+1 for i in range(n)]
+    firstFinished = False
 
     if curr >= cut: shuffle()
 
@@ -199,36 +205,40 @@ while running:
                     if calc_total(hand[turn]) > 21: messages[turn] = "bust"; turn += 1
                 elif buttons[1].collidepoint(event.pos): messages[turn] = "stand"; turn += 1
                 elif (len(buttons) > 2 and buttons[2].collidepoint(event.pos) and options[2] == 'split'):
-                    #split
-                    pass
+                    hand_to_player.insert(turn, hand_to_player[turn-1])
+                    hand.insert(turn, [hand[turn].pop(0)])
+                    isDoubleDown.insert(turn, False)
+                    messages.insert(turn, '')
+                    hand[turn] = draw_card(hand[turn])
+                    hand[turn + 1] = draw_card(hand[turn + 1])
+                    messages[turn] = "split"
+                    messages[turn + 1] = "split"
                 elif (len(buttons) > 2 and buttons[2].collidepoint(event.pos) and options[2] == 'double down') or (len(buttons) > 3 and buttons[3].collidepoint(event.pos) and options[3] == 'double down'):
-                    isDoubleDown[turn] = True
+                    isDoubleDown[turn - 1] = True
                     hand[turn] = draw_card(hand[turn])
                     messages[turn] = "double down"
                     turn += 1
     
-    if turn > n: active = False
+    if turn > len(hand_to_player): active = False
 
     if (active and is_blackjack(hand[turn])): messages[turn] = 'blackjack!'; turn += 1
 
     if editBet: messages[0] = "New Bet: $" + str(newBet)
 
-    if not active and not firstDeal:
+    if not active and not firstDeal and not firstFinished:
         while calc_total(hand[0]) < 17: hand[0] = draw_card(hand[0])
-        for i in range(1, n+1):
+        for i in range(1, len(hand_to_player)+1):
             result = compare_hand(hand[i], hand[0], i)
             messages[i] = result
         flatHands = []
         flattenHands(hand)
         count = prevCount + sum([cval[card[1]] for card in flatHands])
+        firstFinished = True
 
     pygame.display.flip()
 
-# god splits is going to be a pain
 
 pygame.quit()
 
 #todo
-# split - idea maybe make n seperate between num players and num hands to display
-# bc the draw hands area is nice with n=num hands counting splits but all the other stuff should be n=num players
-
+#can remove prevcount/prevchips b/c not needed since firstfinished
