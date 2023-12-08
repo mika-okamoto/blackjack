@@ -31,8 +31,6 @@ hand = [[] for _ in range(n+1)]
 topOffset = [50, 16, 12]
 turn = 1
 messages = ['' for _ in range(n+1)]
-prevCount = count
-prevChips = chips.copy()
 firstFinished = False
 
 def shuffle():
@@ -62,7 +60,7 @@ def is_blackjack(hand):
     return len(hand) == 2 and calc_total(hand) == 21
 
 def compare_hand(player, dealer, num):
-    global bet, chips, prevChips, hand_to_player, isDoubleDown
+    global bet, chips, hand_to_player, isDoubleDown
     player_total, dealer_total = calc_total(player), calc_total(dealer)
     mult, message = 0, ''
     if is_blackjack(player): 
@@ -77,15 +75,15 @@ def compare_hand(player, dealer, num):
             else: message = "Push"
             
     if isDoubleDown[num-1]: mult *= 2
-    chips[hand_to_player[num-1]-1] = prevChips[hand_to_player[num-1]-1] + bet * mult
-    prevChips[hand_to_player[num-1]-1] = chips[hand_to_player[num-1]-1]
+    chips[hand_to_player[num-1]-1] += bet * mult
     return message
 
 def flattenHands(hand):
     global flatHands
     for i in hand:
-        if type(i) == list: flattenHands(i)
+        if isinstance(i, list): flattenHands(i)
         else: flatHands.append(i)
+
 
 def draw_game():
     global hand, active, options, topOffset, messages, turn, chips, hand_to_player
@@ -148,7 +146,7 @@ def resetOptions(hand):
 
 # when new hand
 def reset():
-    global hand, curr, cut, bet, active, firstDeal, n, messages, turn, prevCount, prevChips, newBet, isDoubleDown, hand_to_player, firstFinished
+    global hand, curr, cut, bet, active, firstDeal, n, messages, turn, newBet, isDoubleDown, hand_to_player, firstFinished
     turn = 1
     active, firstDeal = True, False
     bet = newBet
@@ -158,9 +156,6 @@ def reset():
     firstFinished = False
 
     if curr >= cut: shuffle()
-
-    prevCount = count
-    prevChips = chips.copy()
 
     if bet < minbet: bet = minbet
     for i in range(n): 
@@ -232,13 +227,10 @@ while running:
             messages[i] = result
         flatHands = []
         flattenHands(hand)
-        count = prevCount + sum([cval[card[1]] for card in flatHands])
+        count += sum([cval[card[1]] for card in flatHands])
         firstFinished = True
 
     pygame.display.flip()
 
 
 pygame.quit()
-
-#todo
-#can remove prevcount/prevchips b/c not needed since firstfinished
