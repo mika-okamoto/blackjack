@@ -1,6 +1,12 @@
 # blackjack
 Blackjack game for card counting practice, with both text and pygame UIs
 
+To run:
+```
+pip install pygame
+python blackjack.py
+```
+
 Demo:
 
 ![image](https://github.com/mika-okamoto/blackjack/assets/40896683/ca24a458-5998-47a9-91a2-62cd912752b4)
